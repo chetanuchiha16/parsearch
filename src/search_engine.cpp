@@ -1,21 +1,63 @@
 #include "dsearch/search_engine.hpp"
 
+#include "dsearch/document.hpp"
 #include "dsearch/inverted_index.hpp"
 #include "dsearch/statistics.hpp"
 #include "dsearch/tokenizer.hpp"
 
 #include <algorithm>
 #include <cmath>
+#include <omp.h>
 #include <unordered_map>
+#include <vector>
 
 namespace dsearch {
+
+int build_index_parallel(
+    const std::filesystem::path& corpus_dir,
+    InvertedIndex&               index,
+    Statistics&                  stats,
+    const Tokenizer&             tokenizer,
+    int                          num_threads)
+{
+    auto docs = load_documents(corpus_dir);
+    if (docs.empty()) return 0;
+
+    int n_threads = num_threads > 0 ? num_threads : omp_get_max_threads();
+    std::vector<InvertedIndex> thread_local_indexes(n_threads);
+
+    const int total = static_cast<int>(docs.size());
+
+    #pragma omp parallel num_threads(n_threads)
+    {
+        int tid = omp_get_thread_num();
+        #pragma omp for schedule(dynamic)
+        for (int i = 0; i < total; ++i) {
+            auto tokens = tokenizer.tokenize(docs[i].content);
+            thread_local_indexes[tid].add_document(docs[i].id, tokens, docs[i].path.string());
+        }
+    }
+
+    // Merge partial thread-local indexes sequentially into the primary index
+    index.clear();
+    for (auto& local_idx : thread_local_indexes) {
+        index.merge_from(std::move(local_idx));
+    }
+
+    // Compute stats and document norms
+    stats.compute(index);
+    index.compute_doc_norms(stats);
+
+    return static_cast<int>(docs.size());
+}
 
 std::vector<SearchResult> keyword_search(
     const std::string&   query_text,
     const InvertedIndex& index,
     const Statistics&    stats,
     const Tokenizer&     tokenizer,
-    int                  top_k)
+    int                  top_k,
+    int                  num_threads)
 {
     // ── 1. Tokenize query ─────────────────────────────────────────────────
     const auto query_tokens = tokenizer.tokenize(query_text);
@@ -60,22 +102,38 @@ std::vector<SearchResult> keyword_search(
         }
     }
 
-    // ── 4. Normalise to cosine similarity ─────────────────────────────────
-    std::vector<SearchResult> results;
-    results.reserve(dot_products.size());
+    // ── 4. Normalise to cosine similarity (Parallel when candidates > 64) ───
+    std::vector<std::pair<int, double>> candidates(dot_products.begin(), dot_products.end());
+    std::vector<SearchResult> results(candidates.size());
 
-    for (const auto& [doc_id, dot] : dot_products) {
+    int n_threads = num_threads > 0 ? num_threads : omp_get_max_threads();
+    const int num_candidates = static_cast<int>(candidates.size());
+
+    #pragma omp parallel for schedule(static) num_threads(n_threads) if(num_candidates > 64)
+    for (int i = 0; i < num_candidates; ++i) {
+        int doc_id = candidates[i].first;
+        double dot = candidates[i].second;
         const DocMetadata* meta = index.get_doc_metadata(doc_id);
-        if (!meta || meta->norm == 0.0) continue;
-
-        const double score = dot / (query_norm * meta->norm);
-        results.push_back({doc_id, meta->path, score});
+        if (meta && meta->norm > 0.0) {
+            double score = dot / (query_norm * meta->norm);
+            results[i] = SearchResult{doc_id, meta->path, score};
+        } else {
+            results[i] = SearchResult{doc_id, meta ? meta->path : "", 0.0};
+        }
     }
 
-    // ── 5. Sort descending, return top-k ──────────────────────────────────
+    // Filter out zero-score entries
+    results.erase(std::remove_if(results.begin(), results.end(),
+                                [](const SearchResult& r) { return r.score <= 0.0; }),
+                  results.end());
+
+    // ── 5. Sort descending, return top-k (with deterministic tie-breaking by doc_id) ──
     std::sort(results.begin(), results.end(),
               [](const SearchResult& a, const SearchResult& b) {
-                  return a.score > b.score;
+                  if (std::abs(a.score - b.score) > 1e-9) {
+                      return a.score > b.score;
+                  }
+                  return a.doc_id < b.doc_id;
               });
 
     if (static_cast<int>(results.size()) > top_k) {

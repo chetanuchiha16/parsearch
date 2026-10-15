@@ -35,7 +35,7 @@ static int build_index(const fs::path& corpus_dir,
 
 // ── Subcommand: index ─────────────────────────────────────────────────────
 
-static int cmd_index(const std::string& corpus, const std::string& index_dir) {
+static int cmd_index(const std::string& corpus, const std::string& index_dir, int threads) {
     const fs::path corpus_dir{corpus};
     std::cout << "[dsearch] Scanning: " << corpus_dir << "\n";
 
@@ -43,7 +43,7 @@ static int cmd_index(const std::string& corpus, const std::string& index_dir) {
     InvertedIndex index;
     Statistics    stats;
 
-    const int n = build_index(corpus_dir, index, stats, tokenizer);
+    const int n = build_index_parallel(corpus_dir, index, stats, tokenizer, threads);
     if (n == 0) {
         std::cerr << "[dsearch] No .txt or .md documents found in: " << corpus_dir << "\n";
         return 1;
@@ -67,7 +67,8 @@ static int cmd_index(const std::string& corpus, const std::string& index_dir) {
 static int cmd_search(const std::string& corpus,
                       const std::string& index_dir,
                       const std::string& query,
-                      int                top_k) {
+                      int                top_k,
+                      int                threads) {
     Tokenizer     tokenizer;
     InvertedIndex index;
     Statistics    stats;
@@ -77,7 +78,7 @@ static int cmd_search(const std::string& corpus,
         IndexStorage::load(p_index, index, stats);
     } else if (!corpus.empty()) {
         fs::path corpus_dir{corpus};
-        const int n = build_index(corpus_dir, index, stats, tokenizer);
+        const int n = build_index_parallel(corpus_dir, index, stats, tokenizer, threads);
         if (n == 0) {
             std::cerr << "[dsearch] No documents found in: " << corpus_dir << "\n";
             return 1;
@@ -87,7 +88,7 @@ static int cmd_search(const std::string& corpus,
         return 1;
     }
 
-    const auto results = keyword_search(query, index, stats, tokenizer, top_k);
+    const auto results = keyword_search(query, index, stats, tokenizer, top_k, threads);
 
     if (results.empty()) {
         std::cout << "No results found for: \"" << query << "\"\n";
@@ -114,7 +115,7 @@ static int cmd_stats(const std::string& corpus, const std::string& index_dir) {
     if (!index_dir.empty()) {
         IndexStorage::load(fs::path{index_dir}, index, stats);
     } else if (!corpus.empty()) {
-        const int n = build_index(fs::path{corpus}, index, stats, tokenizer);
+        const int n = build_index_parallel(fs::path{corpus}, index, stats, tokenizer);
         if (n == 0) {
             std::cerr << "[dsearch] No documents found in: " << corpus << "\n";
             return 1;
@@ -146,7 +147,7 @@ static int cmd_stats(const std::string& corpus, const std::string& index_dir) {
 // ── Subcommand: status ────────────────────────────────────────────────────
 
 static int cmd_status(const std::string& index_dir) {
-    std::cout << "dsearch v0.2.0 (Phase 02 — Persistent Indexing)\n";
+    std::cout << "dsearch v0.3.0 (Phase 03 — OpenMP Parallel Engine)\n";
     if (!index_dir.empty()) {
         try {
             auto header = IndexStorage::read_header(fs::path{index_dir});
@@ -172,17 +173,21 @@ int main(int argc, char* argv[]) {
     // ── index ──────────────────────────────────────────────────────────────
     auto* sub_index  = app.add_subcommand("index",  "Build a search index from a document directory");
     std::string index_corpus, index_dir_opt;
+    int index_threads = 0;
     sub_index->add_option("corpus", index_corpus, "Path to document directory")->required();
     sub_index->add_option("--index-dir", index_dir_opt, "Directory to persist binary index");
+    sub_index->add_option("--threads",   index_threads, "Number of OpenMP worker threads (0 = auto)");
 
     // ── search ─────────────────────────────────────────────────────────────
     auto* sub_search = app.add_subcommand("search", "Search the indexed corpus");
     std::string search_corpus, search_index_dir, query;
     int top_k = 10;
+    int search_threads = 0;
     sub_search->add_option("query",        query,            "Search query")->required();
     sub_search->add_option("--corpus",     search_corpus,    "Path to document directory");
     sub_search->add_option("--index-dir",  search_index_dir, "Path to directory containing persisted index");
     sub_search->add_option("--top-k",      top_k,            "Number of results to return")->default_val(10);
+    sub_search->add_option("--threads",    search_threads,   "Number of OpenMP worker threads (0 = auto)");
 
     // ── stats ──────────────────────────────────────────────────────────────
     auto* sub_stats  = app.add_subcommand("stats",  "Show corpus statistics");
@@ -198,8 +203,8 @@ int main(int argc, char* argv[]) {
     CLI11_PARSE(app, argc, argv);
 
     try {
-        if (sub_index->parsed())  return cmd_index(index_corpus, index_dir_opt);
-        if (sub_search->parsed()) return cmd_search(search_corpus, search_index_dir, query, top_k);
+        if (sub_index->parsed())  return cmd_index(index_corpus, index_dir_opt, index_threads);
+        if (sub_search->parsed()) return cmd_search(search_corpus, search_index_dir, query, top_k, search_threads);
         if (sub_stats->parsed())  return cmd_stats(stats_corpus, stats_index_dir);
         if (sub_status->parsed()) return cmd_status(status_index_dir);
     } catch (const std::exception& e) {

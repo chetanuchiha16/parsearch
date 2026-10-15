@@ -29,6 +29,28 @@ void InvertedIndex::add_document(int doc_id,
     };
 }
 
+void InvertedIndex::merge_from(InvertedIndex&& other) {
+    // Move or append postings
+    for (auto& [term, other_postings] : other.index_) {
+        auto& this_postings = index_[term];
+        if (this_postings.empty()) {
+            this_postings = std::move(other_postings);
+        } else {
+            this_postings.insert(this_postings.end(),
+                                 std::make_move_iterator(other_postings.begin()),
+                                 std::make_move_iterator(other_postings.end()));
+        }
+    }
+
+    // Merge document metadata
+    for (auto& [doc_id, meta] : other.docs_) {
+        docs_[doc_id] = std::move(meta);
+    }
+
+    other.index_.clear();
+    other.docs_.clear();
+}
+
 const PostingList* InvertedIndex::get_postings(const std::string& term) const {
     const auto it = index_.find(term);
     return (it != index_.end()) ? &it->second : nullptr;

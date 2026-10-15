@@ -29,6 +29,8 @@ FetchContent_Declare(
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+find_package(OpenMP REQUIRED)
+
 # ── dsearch library (all components except main) ──────────────────────────
 add_library(dsearch_lib
     src/document.cpp
@@ -40,6 +42,7 @@ add_library(dsearch_lib
 )
 target_include_directories(dsearch_lib PUBLIC include)
 target_compile_features(dsearch_lib PUBLIC cxx_std_20)
+target_link_libraries(dsearch_lib PUBLIC OpenMP::OpenMP_CXX)
 
 # ── dsearch executable ────────────────────────────────────────────────────
 add_executable(dsearch src/main.cpp)
@@ -51,7 +54,12 @@ add_executable(run_tests
     tests/tokenizer_test.cpp
     tests/ranking_test.cpp
     tests/storage_test.cpp
+    tests/parallel_test.cpp
 )
 target_link_libraries(run_tests PRIVATE dsearch_lib GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(run_tests)
+
+# ── Benchmark executable ──────────────────────────────────────────────────
+add_executable(dsearch_benchmark benchmarks/benchmark.cpp)
+target_link_libraries(dsearch_benchmark PRIVATE dsearch_lib CLI11::CLI11)

@@ -54,6 +54,10 @@ public:
                       const std::vector<std::string>& tokens,
                       const std::string& path);
 
+    /// Merge another partial/thread-local index into this one.
+    /// Used during OpenMP parallel indexing to combine thread-local partitions.
+    void merge_from(InvertedIndex&& other);
+
     /// Return the posting list for a term, or nullptr if absent.
     [[nodiscard]] const PostingList* get_postings(const std::string& term) const;
 
