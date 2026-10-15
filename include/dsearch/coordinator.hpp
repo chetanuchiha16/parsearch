@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <filesystem>
 
+#include "dsearch/document.hpp"
 #include "dsearch/inverted_index.hpp"
 #include "dsearch/search_engine.hpp"
 #include "dsearch/statistics.hpp"
@@ -63,9 +64,14 @@ class DistributedWorker {
 public:
     DistributedWorker(int rank, std::vector<int> assigned_doc_ids);
 
-    /// Index the worker's assigned documents.
+    /// Index the worker's assigned documents from directory.
     void index_partition(
         const std::filesystem::path& corpus_dir,
+        const Tokenizer& tokenizer);
+
+    /// Index pre-partitioned documents directly in memory.
+    void index_partition(
+        const std::vector<Document>& partition_docs,
         const Tokenizer& tokenizer);
 
     /// Return the raw DF counts from this worker's partition.

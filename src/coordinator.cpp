@@ -123,6 +123,23 @@ void DistributedWorker::index_partition(
     }
 }
 
+void DistributedWorker::index_partition(
+    const std::vector<Document>& partition_docs,
+    const Tokenizer& tokenizer)
+{
+    local_index_.clear();
+    local_df_.clear();
+
+    for (const auto& doc : partition_docs) {
+        auto tokens = tokenizer.tokenize(doc.content);
+        local_index_.add_document(doc.id, tokens, doc.path.string());
+    }
+
+    for (const auto& [term, postings] : local_index_.get_index()) {
+        local_df_[term] = static_cast<int>(postings.size());
+    }
+}
+
 const std::unordered_map<std::string, int>& DistributedWorker::get_local_df() const {
     return local_df_;
 }

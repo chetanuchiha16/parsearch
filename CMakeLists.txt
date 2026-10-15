@@ -63,6 +63,9 @@ target_link_libraries(run_tests PRIVATE dsearch_lib GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(run_tests)
 
-# ── Benchmark executable ──────────────────────────────────────────────────
+# ── Benchmark executables ──────────────────────────────────────────────────
 add_executable(dsearch_benchmark benchmarks/benchmark.cpp)
 target_link_libraries(dsearch_benchmark PRIVATE dsearch_lib CLI11::CLI11)
+
+add_executable(dsearch_compare benchmarks/compare_modes.cpp)
+target_link_libraries(dsearch_compare PRIVATE dsearch_lib)
