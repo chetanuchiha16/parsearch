@@ -7,11 +7,13 @@ using parallel processing, distributed workers, and optional semantic search.
 
 ### Requirements
 
-| Tool | Minimum version |
-|------|-----------------|
-| CMake | 3.20 |
-| C++ compiler | GCC 11 / Clang 13 (C++20 required) |
-| Git | Any recent version (for FetchContent) |
+| Tool | Minimum version | Notes |
+|------|-----------------|-------|
+| CMake | 3.20 | Build configuration |
+| C++ compiler | GCC 11 / Clang 13 | C++20 required |
+| OpenMP | 4.5+ | Intra-node multi-threading |
+| OpenMPI / MPICH | 4.0+ | Inter-node process distribution (`openmpi-devel`) |
+| Git | Any recent | FetchContent for CLI11 & GoogleTest |
 
 ### Configure and build
 
@@ -79,46 +81,98 @@ mpirun -np 4 ./build/dsearch_compare ./bench_compare_data
 | 06 | Semantic search *(optional)* | ⏭️ Skipped |
 | 07 | Benchmark + hardening | ✅ Complete |
 
-## Usage & CLI Commands
+## Complete CLI & Executables Reference
+
+The project produces 4 distinct executables:
+
+### 1. `dsearch` (Single-Node Multi-Threaded Engine)
 
 ```sh
-# Build index and persist to disk (supports --threads <N>)
-./build/dsearch index ./data --index-dir ./index --threads 4
+# 1. Ingest corpus and build binary index (optional --threads <N>, --index-dir <path>)
+./build/dsearch index ./data --index-dir ./index --threads 6
 
-# Inspect persisted binary index metadata
-./build/dsearch status --index-dir ./index
+# 2. Search on-the-fly directly from source documents
+./build/dsearch search "database crash recovery" --corpus ./data --top-k 5 --threads 6
 
-# Search directly from persisted index
+# 3. Search high-speed from a pre-built persisted binary index
 ./build/dsearch search "database crash recovery" --index-dir ./index --top-k 5
 
-# Search with distributed workers
+# 4. Multi-worker simulated distributed search (in-process partitioning)
 ./build/dsearch dist-search "distributed consensus raft" --corpus ./data --workers 4 --top-k 5
 
-# Show corpus statistics
+# 5. Display corpus word count, vocabulary size, and document statistics
+./build/dsearch stats ./data
+# Or inspect from saved binary index:
 ./build/dsearch stats --index-dir ./index
 
-# Run benchmark scaling harness (1, 2, 4, 8, 12 threads)
-./build/dsearch_benchmark --corpus ./data --threads 1 2 4 8 12
+# 6. Verify binary index header integrity and format version
+./build/dsearch status --index-dir ./index
 ```
 
-## Architecture (Phase 01)
+### 2. `dsearch_mpi` (Hybrid Multi-Process OpenMPI + OpenMP)
 
+```sh
+# Run cluster of 4 MPI ranks with 2 OpenMP threads per rank
+mpirun -np 4 ./build/dsearch_mpi -c ./data -q "database crash recovery" -k 5 -t 2
+
+# Supported flags:
+#   -c, --corpus   Path to document corpus directory (default: ./data)
+#   -q, --query    Search query keyword string
+#   -k, --top-k    Number of top results to return (default: 10)
+#   -t, --threads  OpenMP worker threads per MPI process (default: 2)
 ```
-CLI (main.cpp)
-  └── load_documents()        document.cpp
-  └── Tokenizer::tokenize()   tokenizer.cpp
-  └── InvertedIndex           inverted_index.cpp
-  └── Statistics::compute()   statistics.cpp
-  └── keyword_search()        search_engine.cpp
+
+### 3. `dsearch_compare` (Three-Way Rigorous Benchmark)
+
+```sh
+# Runs Serial vs OpenMP vs Hybrid MPI side-by-side with identical repeated trials
+mpirun -np 4 ./build/dsearch_compare ./bench_compare_data
+```
+
+### 4. `dsearch_benchmark` (OpenMP Thread Scaling Harness)
+
+```sh
+# Measures speedup and Amdahl scaling across specified thread counts
+./build/dsearch_benchmark --corpus ./data --threads 1 2 4 6 12 --repeats 5
+```
+
+### 5. `scripts/generate_corpus.py` (Synthetic Corpus Generator)
+
+```sh
+# Generate 1,000 synthetic documents with repeated content to simulate larger files
+python3 scripts/generate_corpus.py --output-dir ./bench_compare_data --count 1000 --multiplier 15
+```
+
+## Hybrid Distributed Architecture
+ 
+```
+                      ┌─────────────────────────────────────────┐
+                      │        MPI Coordinator (Rank 0)         │
+                      └────────────────────┬────────────────────┘
+                                           │
+                    MPI Message Passing    │  MPI_Bcast (Query / Global IDF)
+                    (Network / Unix Pipes) │  MPI_Send / MPI_Recv (Top-k lists)
+                                           │
+         ┌──────────────────┬──────────────┴─────┬──────────────────┐
+         │                  │                    │                  │
+         ▼                  ▼                    ▼                  ▼
+  ┌──────────────┐   ┌──────────────┐     ┌──────────────┐   ┌──────────────┐
+  │  MPI Rank 0  │   │  MPI Rank 1  │     │  MPI Rank 2  │   │  MPI Rank 3  │
+  │ (Partition 0)│   │ (Partition 1)│     │ (Partition 2)│   │ (Partition 3)│
+  └──────┬───────┘   └──────┬───────┘     └──────┬───────┘   └──────┬───────┘
+         │                  │                    │                  │
+   OpenMP Threads     OpenMP Threads       OpenMP Threads     OpenMP Threads
+     ┌───┴───┐          ┌───┴───┐            ┌───┴───┐          ┌───┴───┐
+    T0      T1         T0      T1           T0      T1         T0      T1
 ```
 
 ## TF-IDF formulas
 
 ```
-tf_weight(t, d) = 1 + log10( count(t, d) )    [log-normalised]
-idf(t)          = log10( N / df(t) )           [standard IDF]
-w(t, d)         = tf_weight(t, d) * idf(t)     [TF-IDF weight]
-score(q, d)     = dot(q, d) / ( ||q|| * ||d|| ) [cosine similarity]
+tf_weight(t, d) = 1 + log10( count(t, d) )             [log-normalised]
+idf(t)          = log10( (N + 1) / (df(t) + 1) ) + 1   [smoothed IDF]
+w(t, d)         = tf_weight(t, d) * idf(t)              [TF-IDF weight]
+score(q, d)     = dot(q, d) / ( ||q|| * ||d|| )         [cosine similarity]
 ```
 
 ## Repository structure
