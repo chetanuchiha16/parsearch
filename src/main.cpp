@@ -4,6 +4,7 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "dsearch/coordinator.hpp"
 #include "dsearch/document.hpp"
 #include "dsearch/index_storage.hpp"
 #include "dsearch/inverted_index.hpp"
@@ -163,6 +164,69 @@ static int cmd_status(const std::string& index_dir) {
     return 0;
 }
 
+// ── Subcommand: dist-search ───────────────────────────────────────────────
+
+static int cmd_dist_search(const std::string& corpus,
+                           const std::string& query,
+                           int                top_k,
+                           int                num_workers) {
+    fs::path corpus_dir{corpus};
+    Tokenizer tokenizer;
+    auto docs = load_documents(corpus_dir);
+    if (docs.empty()) {
+        std::cerr << "[dsearch] No documents found in: " << corpus_dir << "\n";
+        return 1;
+    }
+
+    DistributedCoordinator coordinator(num_workers);
+    auto partitions = coordinator.partition_documents(static_cast<int>(docs.size()));
+
+    std::cout << "[dsearch-dist] Distributing " << docs.size() << " documents across "
+              << num_workers << " workers\n";
+
+    // Initialize and run worker indexing
+    std::vector<DistributedWorker> workers;
+    std::vector<std::unordered_map<std::string, int>> worker_dfs;
+
+    for (const auto& part : partitions) {
+        DistributedWorker w(part.worker_rank, part.doc_ids);
+        w.index_partition(corpus_dir, tokenizer);
+        worker_dfs.push_back(w.get_local_df());
+        workers.push_back(std::move(w));
+    }
+
+    // Coordinator aggregates global statistics
+    Statistics global_stats = coordinator.aggregate_global_statistics(static_cast<int>(docs.size()), worker_dfs);
+
+    // Apply global statistics to workers
+    for (auto& w : workers) {
+        w.apply_global_statistics(global_stats);
+    }
+
+    // Dispatch query to each worker and gather local top-k
+    std::vector<std::vector<SearchResult>> worker_results;
+    for (const auto& w : workers) {
+        worker_results.push_back(w.search(query, global_stats, tokenizer, top_k));
+    }
+
+    // Coordinator merges and re-ranks top-k
+    auto final_results = coordinator.merge_worker_results(worker_results, top_k);
+
+    if (final_results.empty()) {
+        std::cout << "No results found for: \"" << query << "\"\n";
+        return 0;
+    }
+
+    int rank = 1;
+    for (const auto& r : final_results) {
+        std::cout << std::setw(2) << rank++ << ". "
+                  << r.path
+                  << "    score=" << std::fixed << std::setprecision(4) << r.score
+                  << "\n";
+    }
+    return 0;
+}
+
 // ── main ──────────────────────────────────────────────────────────────────
 
 int main(int argc, char* argv[]) {
@@ -189,6 +253,16 @@ int main(int argc, char* argv[]) {
     sub_search->add_option("--top-k",      top_k,            "Number of results to return")->default_val(10);
     sub_search->add_option("--threads",    search_threads,   "Number of OpenMP worker threads (0 = auto)");
 
+    // ── dist-search ────────────────────────────────────────────────────────
+    auto* sub_dist = app.add_subcommand("dist-search", "Search across distributed worker partitions");
+    std::string dist_corpus, dist_query;
+    int dist_top_k = 10;
+    int num_workers = 4;
+    sub_dist->add_option("query",       dist_query,   "Search query")->required();
+    sub_dist->add_option("--corpus",    dist_corpus,  "Path to document directory")->required();
+    sub_dist->add_option("--workers",   num_workers,  "Number of distributed worker partitions")->default_val(4);
+    sub_dist->add_option("--top-k",     dist_top_k,   "Number of results to return")->default_val(10);
+
     // ── stats ──────────────────────────────────────────────────────────────
     auto* sub_stats  = app.add_subcommand("stats",  "Show corpus statistics");
     std::string stats_corpus, stats_index_dir;
@@ -205,6 +279,7 @@ int main(int argc, char* argv[]) {
     try {
         if (sub_index->parsed())  return cmd_index(index_corpus, index_dir_opt, index_threads);
         if (sub_search->parsed()) return cmd_search(search_corpus, search_index_dir, query, top_k, search_threads);
+        if (sub_dist->parsed())   return cmd_dist_search(dist_corpus, dist_query, dist_top_k, num_workers);
         if (sub_stats->parsed())  return cmd_stats(stats_corpus, stats_index_dir);
         if (sub_status->parsed()) return cmd_status(status_index_dir);
     } catch (const std::exception& e) {

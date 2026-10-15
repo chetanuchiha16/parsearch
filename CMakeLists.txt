@@ -39,6 +39,7 @@ add_library(dsearch_lib
     src/statistics.cpp
     src/search_engine.cpp
     src/index_storage.cpp
+    src/coordinator.cpp
 )
 target_include_directories(dsearch_lib PUBLIC include)
 target_compile_features(dsearch_lib PUBLIC cxx_std_20)
@@ -55,6 +56,7 @@ add_executable(run_tests
     tests/ranking_test.cpp
     tests/storage_test.cpp
     tests/parallel_test.cpp
+    tests/distributed_test.cpp
 )
 target_link_libraries(run_tests PRIVATE dsearch_lib GTest::gtest_main)
 include(GoogleTest)

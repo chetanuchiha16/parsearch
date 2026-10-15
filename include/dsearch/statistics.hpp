@@ -57,6 +57,7 @@ public:
     }
 
     friend class IndexStorage;
+    friend class DistributedCoordinator;
 
 private:
     std::unordered_map<std::string, int>    df_;
