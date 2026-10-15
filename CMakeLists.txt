@@ -36,6 +36,7 @@ add_library(dsearch_lib
     src/inverted_index.cpp
     src/statistics.cpp
     src/search_engine.cpp
+    src/index_storage.cpp
 )
 target_include_directories(dsearch_lib PUBLIC include)
 target_compile_features(dsearch_lib PUBLIC cxx_std_20)
@@ -49,6 +50,7 @@ enable_testing()
 add_executable(run_tests
     tests/tokenizer_test.cpp
     tests/ranking_test.cpp
+    tests/storage_test.cpp
 )
 target_link_libraries(run_tests PRIVATE dsearch_lib GTest::gtest_main)
 include(GoogleTest)

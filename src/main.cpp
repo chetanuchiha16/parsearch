@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "dsearch/document.hpp"
+#include "dsearch/index_storage.hpp"
 #include "dsearch/inverted_index.hpp"
 #include "dsearch/search_engine.hpp"
 #include "dsearch/statistics.hpp"
@@ -15,8 +16,6 @@ using namespace dsearch;
 
 // ── Shared helpers ────────────────────────────────────────────────────────
 
-/// Build an in-memory index + stats from a corpus directory.
-/// Returns the number of documents indexed.
 static int build_index(const fs::path& corpus_dir,
                         InvertedIndex& index,
                         Statistics&    stats,
@@ -36,7 +35,7 @@ static int build_index(const fs::path& corpus_dir,
 
 // ── Subcommand: index ─────────────────────────────────────────────────────
 
-static int cmd_index(const std::string& corpus) {
+static int cmd_index(const std::string& corpus, const std::string& index_dir) {
     const fs::path corpus_dir{corpus};
     std::cout << "[dsearch] Scanning: " << corpus_dir << "\n";
 
@@ -50,29 +49,41 @@ static int cmd_index(const std::string& corpus) {
         return 1;
     }
 
-    // Count unique terms (vocabulary size)
     const int vocab_size = static_cast<int>(index.get_index().size());
-
     std::cout << "[dsearch] Indexed      : " << n         << " documents\n";
     std::cout << "[dsearch] Vocabulary   : " << vocab_size << " unique terms\n";
-    std::cout << "[dsearch] Note         : persistence not yet implemented (Phase 02)\n";
+
+    if (!index_dir.empty()) {
+        fs::path out_dir{index_dir};
+        IndexStorage::save(out_dir, index, stats);
+        std::cout << "[dsearch] Persisted to : " << out_dir << "/index.bin\n";
+    }
+
     return 0;
 }
 
 // ── Subcommand: search ────────────────────────────────────────────────────
 
 static int cmd_search(const std::string& corpus,
-                       const std::string& query,
-                       int                top_k) {
-    const fs::path corpus_dir{corpus};
-
+                      const std::string& index_dir,
+                      const std::string& query,
+                      int                top_k) {
     Tokenizer     tokenizer;
     InvertedIndex index;
     Statistics    stats;
 
-    const int n = build_index(corpus_dir, index, stats, tokenizer);
-    if (n == 0) {
-        std::cerr << "[dsearch] No documents found in: " << corpus_dir << "\n";
+    if (!index_dir.empty()) {
+        fs::path p_index{index_dir};
+        IndexStorage::load(p_index, index, stats);
+    } else if (!corpus.empty()) {
+        fs::path corpus_dir{corpus};
+        const int n = build_index(corpus_dir, index, stats, tokenizer);
+        if (n == 0) {
+            std::cerr << "[dsearch] No documents found in: " << corpus_dir << "\n";
+            return 1;
+        }
+    } else {
+        std::cerr << "[dsearch] Error: either --index-dir or --corpus must be provided\n";
         return 1;
     }
 
@@ -95,35 +106,59 @@ static int cmd_search(const std::string& corpus,
 
 // ── Subcommand: stats ─────────────────────────────────────────────────────
 
-static int cmd_stats(const std::string& corpus) {
-    const fs::path corpus_dir{corpus};
-
+static int cmd_stats(const std::string& corpus, const std::string& index_dir) {
     Tokenizer     tokenizer;
     InvertedIndex index;
     Statistics    stats;
 
-    const int n = build_index(corpus_dir, index, stats, tokenizer);
-    if (n == 0) {
-        std::cerr << "[dsearch] No documents found in: " << corpus_dir << "\n";
+    if (!index_dir.empty()) {
+        IndexStorage::load(fs::path{index_dir}, index, stats);
+    } else if (!corpus.empty()) {
+        const int n = build_index(fs::path{corpus}, index, stats, tokenizer);
+        if (n == 0) {
+            std::cerr << "[dsearch] No documents found in: " << corpus << "\n";
+            return 1;
+        }
+    } else {
+        std::cerr << "[dsearch] Error: either --index-dir or corpus must be provided\n";
         return 1;
     }
 
+    const int n = index.total_docs();
     const int vocab_size = static_cast<int>(index.get_index().size());
 
-    // Count total tokens across all docs
     long long total_tokens = 0;
     for (const auto& [id, meta] : index.get_docs()) {
         total_tokens += meta.length;
     }
 
     std::cout << "Corpus statistics\n";
-    std::cout << "  Documents  : " << n           << "\n";
-    std::cout << "  Vocabulary : " << vocab_size   << " unique terms\n";
+    std::cout << "  Documents   : " << n           << "\n";
+    std::cout << "  Vocabulary  : " << vocab_size   << " unique terms\n";
     std::cout << "  Total tokens: " << total_tokens << "\n";
     std::cout << "  Avg tokens/doc: "
               << std::fixed << std::setprecision(1)
               << (n > 0 ? static_cast<double>(total_tokens) / n : 0.0)
               << "\n";
+    return 0;
+}
+
+// ── Subcommand: status ────────────────────────────────────────────────────
+
+static int cmd_status(const std::string& index_dir) {
+    std::cout << "dsearch v0.2.0 (Phase 02 — Persistent Indexing)\n";
+    if (!index_dir.empty()) {
+        try {
+            auto header = IndexStorage::read_header(fs::path{index_dir});
+            std::cout << "Index status for: " << index_dir << "\n";
+            std::cout << "  Format version: " << header.version << "\n";
+            std::cout << "  Indexed docs  : " << header.num_docs << "\n";
+            std::cout << "  Vocabulary    : " << header.vocab_size << " terms\n";
+        } catch (const std::exception& e) {
+            std::cerr << "  Index check failed: " << e.what() << "\n";
+            return 1;
+        }
+    }
     return 0;
 }
 
@@ -136,36 +171,37 @@ int main(int argc, char* argv[]) {
 
     // ── index ──────────────────────────────────────────────────────────────
     auto* sub_index  = app.add_subcommand("index",  "Build a search index from a document directory");
-    std::string index_corpus;
+    std::string index_corpus, index_dir_opt;
     sub_index->add_option("corpus", index_corpus, "Path to document directory")->required();
+    sub_index->add_option("--index-dir", index_dir_opt, "Directory to persist binary index");
 
     // ── search ─────────────────────────────────────────────────────────────
     auto* sub_search = app.add_subcommand("search", "Search the indexed corpus");
-    std::string search_corpus, query;
+    std::string search_corpus, search_index_dir, query;
     int top_k = 10;
-    sub_search->add_option("query",    query,         "Search query")->required();
-    sub_search->add_option("--corpus", search_corpus, "Path to document directory")->required();
-    sub_search->add_option("--top-k",  top_k,         "Number of results to return")->default_val(10);
+    sub_search->add_option("query",        query,            "Search query")->required();
+    sub_search->add_option("--corpus",     search_corpus,    "Path to document directory");
+    sub_search->add_option("--index-dir",  search_index_dir, "Path to directory containing persisted index");
+    sub_search->add_option("--top-k",      top_k,            "Number of results to return")->default_val(10);
 
     // ── stats ──────────────────────────────────────────────────────────────
     auto* sub_stats  = app.add_subcommand("stats",  "Show corpus statistics");
-    std::string stats_corpus;
-    sub_stats->add_option("corpus", stats_corpus, "Path to document directory")->required();
+    std::string stats_corpus, stats_index_dir;
+    sub_stats->add_option("corpus",        stats_corpus,     "Path to document directory");
+    sub_stats->add_option("--index-dir",   stats_index_dir,  "Path to persisted index directory");
 
     // ── status ─────────────────────────────────────────────────────────────
-    auto* sub_status = app.add_subcommand("status", "Show engine version and status");
-    (void)sub_status;
+    auto* sub_status = app.add_subcommand("status", "Show engine and index status");
+    std::string status_index_dir;
+    sub_status->add_option("--index-dir",  status_index_dir, "Path to index directory to inspect");
 
     CLI11_PARSE(app, argc, argv);
 
     try {
-        if (sub_index->parsed())  return cmd_index(index_corpus);
-        if (sub_search->parsed()) return cmd_search(search_corpus, query, top_k);
-        if (sub_stats->parsed())  return cmd_stats(stats_corpus);
-        if (sub_status->parsed()) {
-            std::cout << "dsearch v0.1.0 (Phase 01 — Sequential Engine)\n";
-            std::cout << "Index persistence: not yet implemented (Phase 02)\n";
-        }
+        if (sub_index->parsed())  return cmd_index(index_corpus, index_dir_opt);
+        if (sub_search->parsed()) return cmd_search(search_corpus, search_index_dir, query, top_k);
+        if (sub_stats->parsed())  return cmd_stats(stats_corpus, stats_index_dir);
+        if (sub_status->parsed()) return cmd_status(status_index_dir);
     } catch (const std::exception& e) {
         std::cerr << "[error] " << e.what() << "\n";
         return 1;

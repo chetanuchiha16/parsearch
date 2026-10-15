@@ -77,6 +77,14 @@ public:
     /// norm(d) = sqrt( sum_t  (tf_weight(t,d) * idf(t))^2 )
     void compute_doc_norms(const Statistics& stats);
 
+    /// Clear all index and document data.
+    void clear() {
+        index_.clear();
+        docs_.clear();
+    }
+
+    friend class IndexStorage;
+
 private:
     std::unordered_map<std::string, PostingList> index_; ///< term → postings
     std::unordered_map<int, DocMetadata>         docs_;  ///< doc_id → metadata

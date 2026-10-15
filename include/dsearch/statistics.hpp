@@ -45,6 +45,19 @@ public:
     [[nodiscard]] const std::unordered_map<std::string, double>& idf_map() const
     { return idf_; }
 
+    /// Read-only access to the full DF map.
+    [[nodiscard]] const std::unordered_map<std::string, int>& df_map() const
+    { return df_; }
+
+    /// Clear all statistics.
+    void clear() {
+        df_.clear();
+        idf_.clear();
+        total_docs_ = 0;
+    }
+
+    friend class IndexStorage;
+
 private:
     std::unordered_map<std::string, int>    df_;
     std::unordered_map<std::string, double> idf_;
