@@ -31,6 +31,9 @@ FetchContent_MakeAvailable(googletest)
 
 find_package(OpenMP REQUIRED)
 
+# ── MPI Support (OpenMPI / MPICH) ─────────────────────────────────────────
+find_package(MPI MODULE REQUIRED)
+
 # ── dsearch library (all components except main) ──────────────────────────
 add_library(dsearch_lib
     src/document.cpp
@@ -48,6 +51,10 @@ target_link_libraries(dsearch_lib PUBLIC OpenMP::OpenMP_CXX)
 # ── dsearch executable ────────────────────────────────────────────────────
 add_executable(dsearch src/main.cpp)
 target_link_libraries(dsearch PRIVATE dsearch_lib CLI11::CLI11)
+
+# ── dsearch_mpi executable (Distributed MPI + OpenMP) ──────────────────────
+add_executable(dsearch_mpi src/mpi_main.cpp)
+target_link_libraries(dsearch_mpi PRIVATE dsearch_lib MPI::MPI_CXX CLI11::CLI11)
 
 # ── Tests ─────────────────────────────────────────────────────────────────
 enable_testing()
@@ -68,4 +75,4 @@ add_executable(dsearch_benchmark benchmarks/benchmark.cpp)
 target_link_libraries(dsearch_benchmark PRIVATE dsearch_lib CLI11::CLI11)
 
 add_executable(dsearch_compare benchmarks/compare_modes.cpp)
-target_link_libraries(dsearch_compare PRIVATE dsearch_lib)
+target_link_libraries(dsearch_compare PRIVATE dsearch_lib MPI::MPI_CXX)

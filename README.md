@@ -36,23 +36,35 @@ python3 scripts/generate_corpus.py --output-dir ./data --count 25
 ./build/dsearch index ./data
 ```
 
-### Search
+## Execution Paradigms
 
-```sh
-./build/dsearch search "database crash recovery" --corpus ./data --top-k 5
+`dsearch` provides three execution paradigms to evaluate parallel and distributed systems trade-offs:
+
+1. **Serial (1 Thread, 1 Process)**:
+   ```bash
+   ./build/dsearch search "database crash recovery" --corpus ./data --top-k 5
+   ```
+
+2. **Parallel (Shared-Memory Multi-Core OpenMP)**:
+   ```bash
+   OMP_NUM_THREADS=6 ./build/dsearch search "database crash recovery" --corpus ./data --top-k 5
+   ```
+
+3. **Hybrid Distributed (Multi-Process MPI + Intra-Node OpenMP)**:
+   ```bash
+   mpirun -np 4 ./build/dsearch_mpi -c ./data -q "database crash recovery" -k 5 -t 2
+   ```
+
+## Three-Way Performance Benchmark
+
+Run the rigorous automated benchmark comparing all three paradigms on the same machine:
+```bash
+mpirun -np 4 ./build/dsearch_compare ./bench_compare_data
 ```
 
-### Corpus statistics
-
-```sh
-./build/dsearch stats ./data
-```
-
-## Run tests
-
-```sh
-cmake --build build --target run_tests
-ctest --test-dir build --output-on-failure
+## Run Tests
+```bash
+./build/run_tests
 ```
 
 ## Project phases

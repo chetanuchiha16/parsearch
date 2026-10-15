@@ -96,6 +96,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default="./data", help="Output directory")
     parser.add_argument("--count",      type=int, default=25, help="Number of documents")
     parser.add_argument("--seed",       type=int, default=42,  help="Random seed")
+    parser.add_argument("--multiplier", type=int, default=1,   help="Repeat content to simulate larger docs")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -107,7 +108,9 @@ def main() -> None:
     for topic, sentences in TOPICS:
         for _ in range(docs_per_topic):
             n_sentences = random.randint(4, 8)
-            content  = make_document(topic, sentences, n_sentences)
+            content = make_document(topic, sentences, n_sentences)
+            if args.multiplier > 1:
+                content = content * args.multiplier
             filename = f"{topic}-{doc_num:03d}.txt"
             path     = os.path.join(args.output_dir, filename)
             with open(path, "w", encoding="utf-8") as f:

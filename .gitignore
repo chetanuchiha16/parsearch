@@ -42,3 +42,5 @@ env/
 # Scratch and logs
 *.log
 scratch/
+/report
+/bench_compare_data
