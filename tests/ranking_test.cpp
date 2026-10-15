@@ -115,6 +115,29 @@ TEST(Ranking, TopKLimitsResultCount) {
     EXPECT_LE(results.size(), 2u);
 }
 
+TEST(Ranking, TopKOrderingMatchesExactSort) {
+    // 10 documents with varying frequencies of "system" and "database"
+    std::vector<std::pair<int, std::string>> docs;
+    for (int i = 0; i < 15; ++i) {
+        std::string text = "operating ";
+        for (int j = 0; j <= i; ++j) {
+            text += "system ";
+        }
+        if (i % 2 == 0) text += "database ";
+        docs.push_back({i, text});
+    }
+
+    TestCorpus tc(docs);
+    auto all_res = tc.search("system database", 15);
+    auto top5_res = tc.search("system database", 5);
+
+    ASSERT_EQ(top5_res.size(), 5u);
+    for (size_t i = 0; i < 5; ++i) {
+        EXPECT_EQ(top5_res[i].doc_id, all_res[i].doc_id);
+        EXPECT_DOUBLE_EQ(top5_res[i].score, all_res[i].score);
+    }
+}
+
 TEST(Ranking, SingleDocumentCorpus) {
     TestCorpus tc({{0, "hello world search engine"}});
     auto results = tc.search("search");

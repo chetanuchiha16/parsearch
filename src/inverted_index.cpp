@@ -1,6 +1,7 @@
 #include "dsearch/inverted_index.hpp"
 #include "dsearch/statistics.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <unordered_map>
 
@@ -83,6 +84,15 @@ void InvertedIndex::compute_doc_norms(const Statistics& stats) {
     for (auto& [doc_id, meta] : docs_) {
         const auto it = squared_sums.find(doc_id);
         meta.norm = (it != squared_sums.end()) ? std::sqrt(it->second) : 0.0;
+    }
+}
+
+void InvertedIndex::sort_postings() {
+    for (auto& [term, postings] : index_) {
+        std::sort(postings.begin(), postings.end(),
+                  [](const Posting& a, const Posting& b) {
+                      return a.doc_id < b.doc_id;
+                  });
     }
 }
 

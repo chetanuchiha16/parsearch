@@ -47,6 +47,7 @@ int build_index_parallel(
     // Compute stats and document norms
     stats.compute(index);
     index.compute_doc_norms(stats);
+    index.sort_postings();
 
     return static_cast<int>(docs.size());
 }
@@ -127,17 +128,19 @@ std::vector<SearchResult> keyword_search(
                                 [](const SearchResult& r) { return r.score <= 0.0; }),
                   results.end());
 
-    // ── 5. Sort descending, return top-k (with deterministic tie-breaking by doc_id) ──
-    std::sort(results.begin(), results.end(),
-              [](const SearchResult& a, const SearchResult& b) {
-                  if (std::abs(a.score - b.score) > 1e-9) {
-                      return a.score > b.score;
-                  }
-                  return a.doc_id < b.doc_id;
-              });
+    // ── 5. Efficient top-k selection: partial_sort in O(N log k) with tie-breaking ──
+    const auto cmp = [](const SearchResult& a, const SearchResult& b) {
+        if (std::abs(a.score - b.score) > 1e-9) {
+            return a.score > b.score; // higher score first
+        }
+        return a.doc_id < b.doc_id;   // smaller doc_id first
+    };
 
     if (static_cast<int>(results.size()) > top_k) {
+        std::partial_sort(results.begin(), results.begin() + top_k, results.end(), cmp);
         results.resize(top_k);
+    } else {
+        std::sort(results.begin(), results.end(), cmp);
     }
 
     return results;

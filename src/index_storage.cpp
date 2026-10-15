@@ -85,7 +85,13 @@ void IndexStorage::save(const std::filesystem::path& index_dir,
         write_str(out, term);
         uint32_t num_postings = static_cast<uint32_t>(postings.size());
         write_val(out, num_postings);
-        for (const auto& p : postings) {
+        // Ensure postings written to disk are sorted by doc_id ascending
+        auto sorted_postings = postings;
+        std::sort(sorted_postings.begin(), sorted_postings.end(),
+                  [](const Posting& a, const Posting& b) {
+                      return a.doc_id < b.doc_id;
+                  });
+        for (const auto& p : sorted_postings) {
             write_val(out, p.doc_id);
             write_val(out, p.tf);
         }

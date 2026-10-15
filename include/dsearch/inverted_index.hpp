@@ -81,6 +81,9 @@ public:
     /// norm(d) = sqrt( sum_t  (tf_weight(t,d) * idf(t))^2 )
     void compute_doc_norms(const Statistics& stats);
 
+    /// Ensure all postings lists are sorted by doc_id ascending for efficient traversal.
+    void sort_postings();
+
     /// Clear all index and document data.
     void clear() {
         index_.clear();

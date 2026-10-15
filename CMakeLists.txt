@@ -57,6 +57,7 @@ add_executable(run_tests
     tests/storage_test.cpp
     tests/parallel_test.cpp
     tests/distributed_test.cpp
+    tests/hardening_test.cpp
 )
 target_link_libraries(run_tests PRIVATE dsearch_lib GTest::gtest_main)
 include(GoogleTest)

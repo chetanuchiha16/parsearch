@@ -59,13 +59,35 @@ ctest --test-dir build --output-on-failure
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 01 | Sequential TF-IDF engine | 🔄 In progress |
-| 02 | Persistent binary index | ⬜ Planned |
-| 03 | OpenMP parallelization | ⬜ Planned |
-| 04 | MPI distributed workers | ⬜ Planned |
-| 05 | Storage optimization | ⬜ Planned |
-| 06 | Semantic search | ⬜ Planned |
-| 07 | Benchmarks + hardening | ⬜ Planned |
+| 01 | Sequential TF-IDF engine | ✅ Complete |
+| 02 | Persistent binary index | ✅ Complete |
+| 03 | OpenMP parallelization | ✅ Complete |
+| 04 | Distributed workers & partitioning | ✅ Complete |
+| 05 | Storage & query optimization | ✅ Complete |
+| 06 | Semantic search *(optional)* | ⏭️ Skipped |
+| 07 | Benchmark + hardening | ✅ Complete |
+
+## Usage & CLI Commands
+
+```sh
+# Build index and persist to disk (supports --threads <N>)
+./build/dsearch index ./data --index-dir ./index --threads 4
+
+# Inspect persisted binary index metadata
+./build/dsearch status --index-dir ./index
+
+# Search directly from persisted index
+./build/dsearch search "database crash recovery" --index-dir ./index --top-k 5
+
+# Search with distributed workers
+./build/dsearch dist-search "distributed consensus raft" --corpus ./data --workers 4 --top-k 5
+
+# Show corpus statistics
+./build/dsearch stats --index-dir ./index
+
+# Run benchmark scaling harness (1, 2, 4, 8, 12 threads)
+./build/dsearch_benchmark --corpus ./data --threads 1 2 4 8 12
+```
 
 ## Architecture (Phase 01)
 
