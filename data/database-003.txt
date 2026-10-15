@@ -1,0 +1,10 @@
+# Database
+
+Database replication copies data to multiple nodes for high availability.
+Databases store structured data in tables and rows.
+B-tree indexes support efficient range queries on sorted data.
+Transactions ensure atomicity, consistency, isolation, and durability.
+Checkpoints allow the database to limit redo log replay on restart.
+SQL is the standard language for relational database queries.
+The buffer pool caches frequently accessed pages in memory.
+Write-ahead logging is used for crash recovery in databases.

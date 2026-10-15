@@ -1,0 +1,10 @@
+# Distributed Systems
+
+MPI is the standard interface for message passing between parallel processes.
+A coordinator process assigns work to worker processes and merges their results.
+Document partitioning divides the corpus across workers so each owns a distinct subset.
+Workers compute local scores and send the top-k candidates to the coordinator.
+The coordinator merges candidate lists using a priority queue and returns the final ranking.
+Global IDF must be derived from global document frequencies, not averaged from local values.
+Fault tolerance allows the system to continue operating when one or more workers fail.
+Horizontal scaling adds more worker processes to handle larger corpora.

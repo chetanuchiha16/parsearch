@@ -1,0 +1,6 @@
+# Database
+
+Databases store structured data in tables and rows.
+Write-ahead logging is used for crash recovery in databases.
+Transactions ensure atomicity, consistency, isolation, and durability.
+Database replication copies data to multiple nodes for high availability.

@@ -1,0 +1,7 @@
+# Networking
+
+TCP provides reliable ordered delivery of data between hosts.
+TLS encrypts network traffic to protect data in transit.
+A router forwards packets between different network segments.
+HTTP is the application layer protocol for web communication.
+UDP is a connectionless protocol suitable for low-latency applications.

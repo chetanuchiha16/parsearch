@@ -1,0 +1,9 @@
+# Parallel Computing
+
+Race conditions occur when multiple threads access shared data without synchronization.
+SIMD instructions process multiple data elements in a single CPU operation.
+A thread pool reuses worker threads to avoid repeated creation overhead.
+A mutex prevents concurrent access to a critical section of code.
+False sharing degrades performance when threads share a cache line.
+Cache coherence ensures all CPU cores see a consistent memory state.
+MPI is the standard interface for distributed memory parallel programming.

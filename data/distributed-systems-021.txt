@@ -1,0 +1,6 @@
+# Distributed Systems
+
+Two-phase commit ensures all participants agree before a transaction commits.
+MapReduce is a programming model for processing large datasets in parallel.
+Eventual consistency allows temporary divergence between replicas.
+Replication improves fault tolerance by copying data across nodes.

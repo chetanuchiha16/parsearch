@@ -1,0 +1,9 @@
+# Networking
+
+The three-way handshake establishes a TCP connection.
+TLS encrypts network traffic to protect data in transit.
+The IP protocol routes packets across interconnected networks.
+Congestion control prevents network collapse under heavy load.
+Latency is the time for a packet to travel from source to destination.
+UDP is a connectionless protocol suitable for low-latency applications.
+Bandwidth measures the maximum data transfer rate of a link.

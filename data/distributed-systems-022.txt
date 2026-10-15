@@ -1,0 +1,10 @@
+# Distributed Systems
+
+Consensus algorithms allow distributed nodes to agree on a value.
+Heartbeat messages detect when a worker process has failed.
+MapReduce is a programming model for processing large datasets in parallel.
+Eventual consistency allows temporary divergence between replicas.
+Partitioning splits data across multiple nodes to improve scalability.
+Two-phase commit ensures all participants agree before a transaction commits.
+Replication improves fault tolerance by copying data across nodes.
+Load balancing distributes work evenly across available workers.

@@ -1,0 +1,9 @@
+# Networking
+
+A router forwards packets between different network segments.
+HTTP is the application layer protocol for web communication.
+Latency is the time for a packet to travel from source to destination.
+DNS translates human-readable domain names to IP addresses.
+TLS encrypts network traffic to protect data in transit.
+Congestion control prevents network collapse under heavy load.
+TCP provides reliable ordered delivery of data between hosts.

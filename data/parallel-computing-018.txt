@@ -1,0 +1,9 @@
+# Parallel Computing
+
+Barrier synchronization forces all threads to wait at a common point.
+Thread-level parallelism splits work across multiple CPU cores.
+Amdahl's law limits the maximum speedup from parallelization.
+A thread pool reuses worker threads to avoid repeated creation overhead.
+MPI is the standard interface for distributed memory parallel programming.
+SIMD instructions process multiple data elements in a single CPU operation.
+Race conditions occur when multiple threads access shared data without synchronization.

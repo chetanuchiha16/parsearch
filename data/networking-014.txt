@@ -1,0 +1,7 @@
+# Networking
+
+Load balancers distribute traffic across multiple servers.
+TLS encrypts network traffic to protect data in transit.
+DNS translates human-readable domain names to IP addresses.
+Bandwidth measures the maximum data transfer rate of a link.
+A router forwards packets between different network segments.

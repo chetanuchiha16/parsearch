@@ -1,0 +1,8 @@
+# Operating Systems
+
+System calls provide the interface between user programs and the kernel.
+Page faults occur when a program accesses a page not in physical memory.
+The scheduler decides which process runs on which CPU core.
+An operating system manages CPU, memory, and IO resources.
+Demand paging loads memory pages only when they are accessed.
+The kernel maintains a process table to track running programs.

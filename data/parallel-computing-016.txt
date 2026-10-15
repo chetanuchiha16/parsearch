@@ -1,0 +1,9 @@
+# Parallel Computing
+
+Barrier synchronization forces all threads to wait at a common point.
+Amdahl's law limits the maximum speedup from parallelization.
+Cache coherence ensures all CPU cores see a consistent memory state.
+A mutex prevents concurrent access to a critical section of code.
+Race conditions occur when multiple threads access shared data without synchronization.
+SIMD instructions process multiple data elements in a single CPU operation.
+Work stealing allows idle threads to take tasks from busy threads.

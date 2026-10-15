@@ -1,0 +1,6 @@
+# Database
+
+Databases store structured data in tables and rows.
+SQL is the standard language for relational database queries.
+Transactions ensure atomicity, consistency, isolation, and durability.
+Database replication copies data to multiple nodes for high availability.

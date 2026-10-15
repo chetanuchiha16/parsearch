@@ -1,0 +1,6 @@
+# Operating Systems
+
+Semaphores and mutexes are used to synchronize concurrent threads.
+Processes are isolated address spaces managed by the kernel.
+Interrupts notify the CPU of hardware events like IO completion.
+The scheduler decides which process runs on which CPU core.

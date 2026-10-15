@@ -1,0 +1,10 @@
+# Parallel Computing
+
+OpenMP is a shared-memory parallel programming API for C, C++, and Fortran.
+Multiple threads can work on different parts of a dataset simultaneously.
+Race conditions occur when two threads modify the same data without synchronization.
+Mutex locks prevent concurrent access to critical sections of code.
+Amdahl's law states that the maximum speedup is limited by the sequential portion of the work.
+Thread-local storage allows each thread to maintain its own copy of a variable.
+Work stealing allows idle threads to take tasks from the queues of busy threads.
+A barrier forces all threads to wait until every thread has reached that point.

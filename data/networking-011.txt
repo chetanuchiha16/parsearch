@@ -1,0 +1,8 @@
+# Networking
+
+Congestion control prevents network collapse under heavy load.
+The three-way handshake establishes a TCP connection.
+UDP is a connectionless protocol suitable for low-latency applications.
+The IP protocol routes packets across interconnected networks.
+DNS translates human-readable domain names to IP addresses.
+Load balancers distribute traffic across multiple servers.

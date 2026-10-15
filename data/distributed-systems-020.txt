@@ -1,0 +1,6 @@
+# Distributed Systems
+
+MapReduce is a programming model for processing large datasets in parallel.
+Load balancing distributes work evenly across available workers.
+Replication improves fault tolerance by copying data across nodes.
+Fault tolerance allows a system to continue operating when components fail.

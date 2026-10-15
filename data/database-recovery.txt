@@ -1,0 +1,10 @@
+# Database Recovery
+
+Databases use write-ahead logging to ensure crash recovery after failures.
+A transaction log records every change before it is applied to the main data files.
+When a database crashes, it replays the transaction log to restore a consistent state.
+Checkpoints reduce recovery time by marking points where all dirty pages have been flushed to disk.
+The ARIES recovery algorithm uses three phases: analysis, redo, and undo.
+Row-level locking allows multiple transactions to operate on different rows concurrently.
+ACID properties guarantee that each transaction is atomic, consistent, isolated, and durable.
+A storage engine manages how pages are read from and written to disk.

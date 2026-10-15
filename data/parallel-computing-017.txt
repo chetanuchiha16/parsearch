@@ -1,0 +1,6 @@
+# Parallel Computing
+
+OpenMP provides a shared-memory parallel programming model for C and C++.
+Thread-level parallelism splits work across multiple CPU cores.
+Race conditions occur when multiple threads access shared data without synchronization.
+Barrier synchronization forces all threads to wait at a common point.

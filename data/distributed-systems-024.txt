@@ -1,0 +1,8 @@
+# Distributed Systems
+
+Partitioning splits data across multiple nodes to improve scalability.
+Distributed systems coordinate multiple machines to work together.
+Two-phase commit ensures all participants agree before a transaction commits.
+Consensus algorithms allow distributed nodes to agree on a value.
+Eventual consistency allows temporary divergence between replicas.
+Message passing is a common communication pattern in distributed systems.

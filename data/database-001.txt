@@ -1,0 +1,7 @@
+# Database
+
+The buffer pool caches frequently accessed pages in memory.
+SQL is the standard language for relational database queries.
+B-tree indexes support efficient range queries on sorted data.
+A storage engine manages how data is physically written to disk.
+Checkpoints allow the database to limit redo log replay on restart.

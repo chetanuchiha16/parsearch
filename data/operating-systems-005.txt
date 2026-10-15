@@ -1,0 +1,7 @@
+# Operating Systems
+
+System calls provide the interface between user programs and the kernel.
+Processes are isolated address spaces managed by the kernel.
+The kernel maintains a process table to track running programs.
+Semaphores and mutexes are used to synchronize concurrent threads.
+Page faults occur when a program accesses a page not in physical memory.

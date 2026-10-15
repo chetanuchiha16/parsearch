@@ -1,0 +1,10 @@
+# Operating Systems
+
+System calls provide the interface between user programs and the kernel.
+Page faults occur when a program accesses a page not in physical memory.
+File systems organize data into directories and files on disk.
+Processes are isolated address spaces managed by the kernel.
+An operating system manages CPU, memory, and IO resources.
+Context switching saves and restores CPU registers between processes.
+Interrupts notify the CPU of hardware events like IO completion.
+Virtual memory allows programs to use more memory than physically installed.

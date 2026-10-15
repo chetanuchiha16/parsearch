@@ -1,0 +1,6 @@
+# Operating Systems
+
+File systems organize data into directories and files on disk.
+Processes are isolated address spaces managed by the kernel.
+Semaphores and mutexes are used to synchronize concurrent threads.
+The scheduler decides which process runs on which CPU core.

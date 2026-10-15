@@ -1,0 +1,10 @@
+# Parallel Computing
+
+OpenMP provides a shared-memory parallel programming model for C and C++.
+False sharing degrades performance when threads share a cache line.
+Thread-level parallelism splits work across multiple CPU cores.
+Work stealing allows idle threads to take tasks from busy threads.
+SIMD instructions process multiple data elements in a single CPU operation.
+Amdahl's law limits the maximum speedup from parallelization.
+Cache coherence ensures all CPU cores see a consistent memory state.
+Race conditions occur when multiple threads access shared data without synchronization.

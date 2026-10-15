@@ -1,0 +1,10 @@
+# Operating Systems
+
+An operating system manages CPU, memory, and IO resources on behalf of running programs.
+The scheduler decides which process or thread runs on each CPU core at any moment.
+Virtual memory gives each process the illusion of a private address space.
+Page faults transfer pages from disk to RAM when a program accesses an unmapped address.
+System calls are the interface between user-space programs and the kernel.
+Context switching saves the CPU state of the current thread and restores another.
+Semaphores and condition variables coordinate access to shared resources between threads.
+File systems organize data on persistent storage into a hierarchy of directories and files.

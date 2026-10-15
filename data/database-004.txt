@@ -1,0 +1,8 @@
+# Database
+
+Databases store structured data in tables and rows.
+Indexes speed up query execution by reducing full table scans.
+Checkpoints allow the database to limit redo log replay on restart.
+A database crash can be recovered using transaction logs.
+Write-ahead logging is used for crash recovery in databases.
+SQL is the standard language for relational database queries.

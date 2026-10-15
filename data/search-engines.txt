@@ -1,0 +1,10 @@
+# Search Engine Fundamentals
+
+An inverted index maps each term to the list of documents that contain it.
+TF-IDF weights terms higher when they appear frequently in a document but rarely in the corpus.
+Cosine similarity measures the angle between a query vector and a document vector.
+A posting list stores document IDs and term frequencies for each vocabulary term.
+The IDF formula is log10 of the total document count divided by the document frequency.
+Sparse vector representations only store non-zero entries for efficiency.
+Query processing walks each term's posting list and accumulates per-document scores.
+The top-k algorithm selects the k highest-scoring documents from all candidates.
