@@ -20,12 +20,18 @@ std::vector<Document> load_documents(const std::filesystem::path& dir) {
         throw std::runtime_error("Not a valid directory: " + dir.string());
     }
 
-    // Collect all .txt and .md paths
+    // Collect supported document and text file paths
     std::vector<std::filesystem::path> paths;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
         if (!entry.is_regular_file()) continue;
         const auto ext = entry.path().extension().string();
-        if (ext == ".txt" || ext == ".md") {
+        // Index standard text/code documents as well as common document formats
+        if (ext == ".txt" || ext == ".md" || ext == ".tex" ||
+            ext == ".pdf" || ext == ".xls" || ext == ".xlsx" ||
+            ext == ".doc" || ext == ".docx" || ext == ".csv" ||
+            ext == ".cpp" || ext == ".hpp" || ext == ".cc" ||
+            ext == ".h" || ext == ".py" || ext == ".json" ||
+            ext == ".html" || ext == ".xml" || ext == ".log") {
             paths.push_back(entry.path());
         }
     }
@@ -38,7 +44,25 @@ std::vector<Document> load_documents(const std::filesystem::path& dir) {
 
     int next_id = 0;
     for (auto& p : paths) {
-        auto content = read_file(p);
+        const auto ext = p.extension().string();
+        std::string content;
+
+        // For plain text / code files, read the file body
+        if (ext == ".txt" || ext == ".md" || ext == ".tex" ||
+            ext == ".cpp" || ext == ".hpp" || ext == ".cc" ||
+            ext == ".h" || ext == ".py" || ext == ".json" ||
+            ext == ".html" || ext == ".xml" || ext == ".csv" || ext == ".log") {
+            content = read_file(p);
+        }
+
+        // Always prepend the filename so file names and extensions are fully indexed and searchable
+        std::string filename_str = p.filename().string();
+        if (!content.empty()) {
+            content = filename_str + "\n" + content;
+        } else {
+            content = filename_str;
+        }
+
         if (content.empty()) continue; // skip unreadable or empty files
         docs.push_back({next_id++, p, std::move(content)});
     }
