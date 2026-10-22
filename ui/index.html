@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dsearch — Distributed Parallel Search Engine Dashboard</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-teal-500 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="border-b border-slate-800 bg-slate-900/60 sticky top-0 z-50 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-lg bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-teal-500/20 font-bold text-white text-lg">
+          ⚡
+        </div>
+        <div>
+          <span class="text-xl font-bold tracking-tight bg-gradient-to-r from-teal-400 to-cyan-300 bg-clip-text text-transparent">dsearch</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 mono">C++20 Hybrid MPI+OpenMP</span>
+        </div>
+      </div>
+      
+      <!-- Stats quick overview -->
+      <div class="flex items-center gap-6 text-xs text-slate-400">
+        <div class="hidden sm:flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Engine Active</span>
+        </div>
+        <div class="hidden md:flex gap-4 mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+          <div>Docs: <span id="hdr-docs" class="text-slate-200 font-semibold">-</span></div>
+          <div>Vocab: <span id="hdr-vocab" class="text-slate-200 font-semibold">-</span></div>
+          <div>Tokens: <span id="hdr-tokens" class="text-slate-200 font-semibold">-</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Search & Control Panel -->
+    <section class="glass rounded-2xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
+      <div class="absolute -top-24 -right-24 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="space-y-6 relative">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Interactive Query & Cluster Evaluation</h1>
+          <p class="text-slate-400 text-sm mt-1">Search the distributed corpus with instant benchmarking across Serial, Shared-Memory, and Cluster modes.</p>
+        </div>
+
+        <!-- Corpus Directory Input & Presets -->
+        <div class="flex flex-col sm:flex-row items-center gap-3 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 text-xs">
+          <div class="flex items-center gap-2 text-slate-400 font-semibold uppercase tracking-wider pl-2 min-w-max">
+            <i data-lucide="folder" class="h-4 w-4 text-teal-400"></i>
+            <span>Corpus Directory:</span>
+          </div>
+          <input 
+            id="corpus-input"
+            type="text" 
+            value="./data" 
+            placeholder="Path to documents directory (e.g. ./data, ~/Documents)..."
+            class="flex-1 bg-slate-950 border border-slate-700/60 rounded-lg px-3 py-1.5 text-slate-200 mono text-xs focus:outline-none focus:ring-1 focus:ring-teal-500"
+          />
+          <div class="flex items-center gap-1.5 min-w-max">
+            <button type="button" class="corpus-preset-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" data-path="./data">./data</button>
+            <button type="button" class="corpus-preset-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" data-path="~/Documents">~/Documents</button>
+            <button type="button" class="corpus-preset-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors" data-path="./heavy_corpus_data">./heavy</button>
+            <button id="apply-corpus-btn" class="px-3 py-1 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30 hover:bg-teal-500/30 font-semibold transition-colors">Apply</button>
+          </div>
+        </div>
+
+        <!-- Query Input Bar -->
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-4 top-3.5 h-5 w-5 text-slate-500"></i>
+            <input 
+              id="search-input"
+              type="text" 
+              value="database recovery transaction crash log consensus" 
+              placeholder="Enter search query terms (e.g. database crash recovery)..."
+              class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-12 pr-4 py-3.5 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all mono text-sm shadow-inner"
+            />
+          </div>
+          <button 
+            id="search-btn"
+            class="px-7 py-3.5 bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-400 hover:to-cyan-500 text-slate-950 font-bold rounded-xl transition-all shadow-lg shadow-teal-500/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95 text-sm"
+          >
+            <i data-lucide="zap" class="h-4 w-4"></i>
+            <span>Execute Search</span>
+          </button>
+        </div>
+
+        <!-- Config Grid: Paradigms, Threads, Ranks -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+          <!-- Paradigm Selector -->
+          <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+              <span>Execution Paradigm</span>
+              <span id="badge-mode" class="text-teal-400 text-[10px] mono">MPI Process Hybrid</span>
+            </label>
+            <div class="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800/80 text-xs font-medium">
+              <button data-mode="serial" class="mode-btn py-1.5 rounded-md text-slate-400 hover:text-white transition-all text-center">Serial</button>
+              <button data-mode="openmp" class="mode-btn py-1.5 rounded-md text-slate-400 hover:text-white transition-all text-center">OpenMP</button>
+              <button data-mode="hybrid_mpi" class="mode-btn py-1.5 rounded-md bg-teal-500 text-slate-950 font-bold shadow-md text-center">Hybrid MPI</button>
+            </div>
+          </div>
+
+          <!-- OpenMP Thread Tuning -->
+          <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">OpenMP Threads / Rank</label>
+              <span id="val-threads" class="text-xs font-bold text-teal-400 mono">4 Cores</span>
+            </div>
+            <input 
+              id="slider-threads"
+              type="range" min="1" max="12" value="4" 
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-teal-500"
+            />
+            <div class="flex justify-between text-[10px] text-slate-500 mono">
+              <span>1 Thread</span>
+              <span>6 Physical</span>
+              <span>12 SMT</span>
+            </div>
+          </div>
+
+          <!-- MPI Ranks / Partitions Tuning -->
+          <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">MPI Ranks (Processes)</label>
+              <span id="val-ranks" class="text-xs font-bold text-cyan-400 mono">4 Ranks</span>
+            </div>
+            <input 
+              id="slider-ranks"
+              type="range" min="1" max="8" value="4" 
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+            />
+            <div class="flex justify-between text-[10px] text-slate-500 mono">
+              <span>1 Process</span>
+              <span>4 Ranks</span>
+              <span>8 Ranks</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Content Layout (Left: Results, Right: Live Cluster Metrics & Benchmark) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      
+      <!-- Search Results Column (7 Cols) -->
+      <section class="lg:col-span-7 space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="list-ordered" class="h-5 w-5 text-teal-400"></i>
+              Ranked Search Results
+            </h2>
+            <span id="results-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 mono">5 found</span>
+          </div>
+          <div id="query-latency-pill" class="text-xs mono px-2.5 py-1 rounded-md bg-teal-500/10 text-teal-300 border border-teal-500/20 font-semibold">
+            Latency: 0.00 ms
+          </div>
+        </div>
+
+        <!-- Results List Container -->
+        <div id="results-container" class="space-y-3">
+          <div class="p-8 text-center text-slate-500 glass rounded-xl">
+            Hit "Execute Search" to run TF-IDF scoring across the cluster.
+          </div>
+        </div>
+      </section>
+
+      <!-- Metrics & Benchmark Column (5 Cols) -->
+      <section class="lg:col-span-5 space-y-6">
+
+        <!-- Live 3-Way Benchmark Race Card -->
+        <div class="glass rounded-2xl p-6 shadow-xl space-y-4 border border-slate-800">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="gauge" class="h-4 w-4 text-cyan-400"></i>
+                Three-Way Performance Benchmark
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Serial vs. OpenMP 6 Cores vs. Hybrid MPI 4 Ranks</p>
+            </div>
+            <button 
+              id="bench-run-btn"
+              class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-indigo-600/30 cursor-pointer active:scale-95"
+            >
+              <i data-lucide="play" class="h-3.5 w-3.5"></i>
+              <span>Run Live Race</span>
+            </button>
+          </div>
+
+          <!-- Chart canvas -->
+          <div class="h-48 w-full relative">
+            <canvas id="benchmarkChart"></canvas>
+          </div>
+
+          <!-- Benchmark summary stats table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs mono">
+              <thead>
+                <tr class="border-b border-slate-800 text-slate-400">
+                  <th class="py-1.5">Paradigm</th>
+                  <th class="py-1.5 text-right">Index (ms)</th>
+                  <th class="py-1.5 text-right">Query (ms)</th>
+                  <th class="py-1.5 text-right">Query Speedup</th>
+                </tr>
+              </thead>
+              <tbody id="bench-table-body" class="divide-y divide-slate-800/60">
+                <tr>
+                  <td class="py-1.5 text-slate-300">Serial Baseline</td>
+                  <td class="py-1.5 text-right text-slate-400">--</td>
+                  <td class="py-1.5 text-right text-slate-400">--</td>
+                  <td class="py-1.5 text-right text-slate-400">1.00x</td>
+                </tr>
+                <tr>
+                  <td class="py-1.5 text-amber-400">Parallel OpenMP (6T)</td>
+                  <td class="py-1.5 text-right text-slate-400">--</td>
+                  <td class="py-1.5 text-right text-slate-400">--</td>
+                  <td class="py-1.5 text-right text-amber-400">--</td>
+                </tr>
+                <tr>
+                  <td class="py-1.5 text-teal-400 font-bold">Hybrid MPI (4 Ranks)</td>
+                  <td class="py-1.5 text-right text-slate-400">--</td>
+                  <td class="py-1.5 text-right text-slate-200 font-bold">--</td>
+                  <td class="py-1.5 text-right text-emerald-400 font-bold">--</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Cluster & Partition Architecture Card -->
+        <div class="glass rounded-2xl p-6 shadow-xl space-y-4 border border-slate-800">
+          <h3 class="text-base font-bold text-white flex items-center gap-2">
+            <i data-lucide="network" class="h-4 w-4 text-purple-400"></i>
+            Active Cluster Topology
+          </h3>
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[11px] text-slate-500 uppercase font-semibold">Coordinator</div>
+              <div class="text-sm font-bold text-red-400 mono mt-0.5">MPI Rank 0</div>
+              <div class="text-[10px] text-slate-400 mt-1">Aggregates DF & IDF</div>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[11px] text-slate-500 uppercase font-semibold">Workers</div>
+              <div id="card-workers" class="text-sm font-bold text-teal-400 mono mt-0.5">4 Partitions</div>
+              <div class="text-[10px] text-slate-400 mt-1">doc_id % 4 sharding</div>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[11px] text-slate-500 uppercase font-semibold">Formula</div>
+              <div class="text-sm font-bold text-indigo-400 mono mt-0.5">Smoothed TF-IDF</div>
+              <div class="text-[10px] text-slate-400 mt-1">Cosine Normalization</div>
+            </div>
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+              <div class="text-[11px] text-slate-500 uppercase font-semibold">Memory Model</div>
+              <div class="text-sm font-bold text-emerald-400 mono mt-0.5">Weak Scaling</div>
+              <div class="text-[10px] text-slate-400 mt-1">Partitioned RAM</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+
+    <!-- Document Modal Viewer -->
+    <div id="doc-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col shadow-2xl overflow-hidden">
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+          <div class="flex items-center gap-2">
+            <i data-lucide="file-text" class="h-4 w-4 text-teal-400"></i>
+            <span id="modal-filename" class="font-bold text-sm text-slate-200 mono">document.txt</span>
+          </div>
+          <button id="modal-close" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+            <i data-lucide="x" class="h-4 w-4"></i>
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 custom-scroll">
+          <pre id="modal-content" class="text-xs mono text-slate-300 whitespace-pre-wrap leading-relaxed"></pre>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-900 bg-slate-950 py-6 text-center text-xs text-slate-500 mono">
+    VTU BCS702 Parallel Computing • Chetan Kishor C G & Hongiran D • JSSATE Bengaluru
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    lucide.createIcons();
+
+    let currentMode = "hybrid_mpi";
+    let benchmarkChartInstance = null;
+
+    // Elements
+    const searchInput = document.getElementById("search-input");
+    const searchBtn = document.getElementById("search-btn");
+    const resultsContainer = document.getElementById("results-container");
+    const resultsCountBadge = document.getElementById("results-count-badge");
+    const latencyPill = document.getElementById("query-latency-pill");
+    const sliderThreads = document.getElementById("slider-threads");
+    const valThreads = document.getElementById("val-threads");
+    const sliderRanks = document.getElementById("slider-ranks");
+    const valRanks = document.getElementById("val-ranks");
+    const badgeMode = document.getElementById("badge-mode");
+    const benchRunBtn = document.getElementById("bench-run-btn");
+    const docModal = document.getElementById("doc-modal");
+    const modalFilename = document.getElementById("modal-filename");
+    const modalContent = document.getElementById("modal-content");
+    const modalClose = document.getElementById("modal-close");
+
+    // Sliders
+    sliderThreads.addEventListener("input", (e) => {
+      valThreads.textContent = `${e.target.value} Cores`;
+    });
+    sliderRanks.addEventListener("input", (e) => {
+      valRanks.textContent = `${e.target.value} Ranks`;
+      document.getElementById("card-workers").textContent = `${e.target.value} Partitions`;
+    });
+
+    // Paradigm Buttons
+    document.querySelectorAll(".mode-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".mode-btn").forEach(b => {
+          b.className = "mode-btn py-1.5 rounded-md text-slate-400 hover:text-white transition-all text-center";
+        });
+        btn.className = "mode-btn py-1.5 rounded-md bg-teal-500 text-slate-950 font-bold shadow-md text-center";
+        currentMode = btn.dataset.mode;
+        
+        if (currentMode === "serial") {
+          badgeMode.textContent = "Single Thread Sequential";
+          badgeMode.className = "text-slate-400 text-[10px] mono";
+        } else if (currentMode === "openmp") {
+          badgeMode.textContent = "OpenMP Multi-Core";
+          badgeMode.className = "text-amber-400 text-[10px] mono";
+        } else {
+          badgeMode.textContent = "MPI Process Hybrid";
+          badgeMode.className = "text-teal-400 text-[10px] mono";
+        }
+      });
+    });
+
+    const corpusInput = document.getElementById("corpus-input");
+    const applyCorpusBtn = document.getElementById("apply-corpus-btn");
+
+    // Preset buttons
+    document.querySelectorAll(".corpus-preset-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        corpusInput.value = btn.dataset.path;
+        loadStats();
+        doSearch();
+      });
+    });
+
+    applyCorpusBtn.addEventListener("click", () => {
+      loadStats();
+      doSearch();
+    });
+
+    // Fetch Stats
+    async function loadStats() {
+      try {
+        const corpus = corpusInput.value.trim() || "./data";
+        const res = await fetch(`/api/stats?corpus=${encodeURIComponent(corpus)}`);
+        const data = await res.json();
+        document.getElementById("hdr-docs").textContent = data.documents;
+        document.getElementById("hdr-vocab").textContent = data.vocabulary;
+        document.getElementById("hdr-tokens").textContent = data.total_tokens;
+      } catch (err) {
+        console.error("Stats load failed:", err);
+      }
+    }
+    loadStats();
+
+    // Execute Search Action
+    async function doSearch() {
+      const query = searchInput.value.trim();
+      if (!query) return;
+
+      searchBtn.disabled = true;
+      searchBtn.innerHTML = `<i data-lucide="loader" class="h-4 w-4 animate-spin"></i><span>Scoring...</span>`;
+      lucide.createIcons();
+
+      try {
+        const payload = {
+          query: query,
+          mode: currentMode,
+          top_k: 5,
+          corpus: corpusInput.value.trim() || "./data",
+          omp_threads: parseInt(sliderThreads.value),
+          mpi_ranks: parseInt(sliderRanks.value)
+        };
+
+        const t0 = performance.now();
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const t1 = performance.now();
+
+        latencyPill.textContent = `Latency: ${data.latency_ms} ms`;
+        resultsCountBadge.textContent = `${data.results.length} found`;
+
+        renderResults(data.results);
+      } catch (err) {
+        resultsContainer.innerHTML = `<div class="p-6 text-red-400 bg-red-950/20 rounded-xl border border-red-900 text-sm">Failed to execute query: ${err.message}</div>`;
+      } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = `<i data-lucide="zap" class="h-4 w-4"></i><span>Execute Search</span>`;
+        lucide.createIcons();
+      }
+    }
+
+    function renderResults(results) {
+      if (!results || results.length === 0) {
+        resultsContainer.innerHTML = `<div class="p-8 text-center text-slate-500 glass rounded-xl">No documents matched the specified query terms.</div>`;
+        return;
+      }
+
+      resultsContainer.innerHTML = results.map(r => {
+        const scorePercent = Math.min(100, Math.round(r.score * 250));
+        return `
+          <div class="glass p-4 rounded-xl border border-slate-800/80 hover:border-teal-500/40 transition-all group space-y-2.5">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-center gap-2.5">
+                <span class="h-6 w-6 rounded-md bg-teal-500/10 text-teal-400 border border-teal-500/20 text-xs font-bold flex items-center justify-center mono">
+                  #${r.rank}
+                </span>
+                <span class="font-bold text-sm text-slate-100 group-hover:text-teal-300 transition-colors cursor-pointer" onclick="viewDoc('${r.path}')">
+                  ${r.name}
+                </span>
+              </div>
+              <div class="text-right flex items-center gap-2">
+                <span class="text-xs text-slate-400 mono">Score:</span>
+                <span class="text-xs font-bold text-teal-400 mono bg-slate-900 px-2 py-0.5 rounded border border-slate-800">${r.score.toFixed(4)}</span>
+              </div>
+            </div>
+            
+            <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+              ${r.snippet}
+            </p>
+
+            <div class="w-full bg-slate-900 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-gradient-to-r from-teal-500 to-cyan-400 h-full rounded-full transition-all duration-500" style="width: ${scorePercent}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Modal Viewer
+    window.viewDoc = async function(path) {
+      try {
+        const res = await fetch(`/api/document?path=${encodeURIComponent(path)}`);
+        const data = await res.json();
+        modalFilename.textContent = data.path;
+        modalContent.textContent = data.content;
+        docModal.classList.remove("hidden");
+      } catch (e) {
+        alert("Failed to load document content.");
+      }
+    };
+    modalClose.addEventListener("click", () => docModal.classList.add("hidden"));
+    docModal.addEventListener("click", (e) => {
+      if (e.target === docModal) docModal.classList.add("hidden");
+    });
+
+    searchBtn.addEventListener("click", doSearch);
+    searchInput.addEventListener("keypress", (e) => { if (e.key === "Enter") doSearch(); });
+
+    // Chart.js Setup
+    function initChart(labels = ["Serial (1T)", "OpenMP (6T)", "Hybrid MPI (4R)"], values = [0.2307, 0.3809, 0.0811]) {
+      const ctx = document.getElementById("benchmarkChart").getContext("2d");
+      if (benchmarkChartInstance) benchmarkChartInstance.destroy();
+
+      benchmarkChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: labels,
+          datasets: [{
+            label: "Query Latency (ms) - Lower is Better",
+            data: values,
+            backgroundColor: [
+              "rgba(148, 163, 184, 0.6)",
+              "rgba(245, 158, 11, 0.6)",
+              "rgba(20, 184, 166, 0.8)"
+            ],
+            borderColor: [
+              "rgb(148, 163, 184)",
+              "rgb(245, 158, 11)",
+              "rgb(20, 184, 166)"
+            ],
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: "rgba(51, 65, 85, 0.4)" },
+              ticks: { color: "#94a3b8", font: { family: "JetBrains Mono", size: 10 } }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: "#94a3b8", font: { family: "JetBrains Mono", size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    initChart();
+
+    // Benchmark Run
+    benchRunBtn.addEventListener("click", async () => {
+      benchRunBtn.disabled = true;
+      const targetCorpus = corpusInput.value.trim() || "./data";
+      benchRunBtn.innerHTML = `<i data-lucide="loader" class="h-3.5 w-3.5 animate-spin"></i><span>Running Race on ${targetCorpus}...</span>`;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch("/api/benchmark", { 
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ corpus: targetCorpus })
+        });
+        const data = await res.json();
+        
+        if (data.benchmark_rows && data.benchmark_rows.length >= 3) {
+          const rows = data.benchmark_rows;
+          const labels = rows.map(r => r.mode);
+          const latencies = rows.map(r => r.query_latency_ms);
+          initChart(labels, latencies);
+
+          const tbody = document.getElementById("bench-table-body");
+          tbody.innerHTML = rows.map(r => `
+            <tr class="transition-all hover:bg-slate-800/40">
+              <td class="py-1.5 text-slate-300 font-medium">${r.mode}</td>
+              <td class="py-1.5 text-right text-slate-300">${r.idx_time_ms.toFixed(1)} ms</td>
+              <td class="py-1.5 text-right text-slate-200">${r.query_latency_ms.toFixed(4)} ms</td>
+              <td class="py-1.5 text-right font-bold ${r.query_speedup.includes("x") && parseFloat(r.query_speedup) > 1 ? "text-emerald-400" : "text-amber-400"}">${r.query_speedup}</td>
+            </tr>
+          `).join("");
+        } else {
+          alert("Benchmark finished without table rows. Raw output:\n" + data.raw_output);
+        }
+      } catch (err) {
+        alert("Benchmark execution failed: " + err.message);
+      } finally {
+        benchRunBtn.disabled = false;
+        benchRunBtn.innerHTML = `<i data-lucide="play" class="h-3.5 w-3.5"></i><span>Run Live Race</span>`;
+        lucide.createIcons();
+      }
+    });
+
+    // Run initial search on mount
+    doSearch();
+  </script>
+</body>
+</html>

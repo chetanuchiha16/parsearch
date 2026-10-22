@@ -38,6 +38,22 @@ python3 scripts/generate_corpus.py --output-dir ./data --count 25
 ./build/dsearch index ./data
 ```
 
+## Interactive Web UI Dashboard
+
+A standalone web UI dashboard is provided for live visual demonstration:
+
+```sh
+python3 ui/app.py
+```
+Then open **`http://localhost:8080`** in any web browser.
+
+**Features:**
+- Real-time TF-IDF search across the corpus with snippets and relevance scores.
+- Dynamic paradigm switcher: **Serial**, **OpenMP**, and **Hybrid MPI**.
+- On-the-fly tuning of OpenMP cores and MPI rank partitions.
+- Live **3-Way Benchmark Race** with interactive Chart.js latency graphs.
+- Document content viewer modal.
+
 ## Execution Paradigms
 
 `dsearch` provides three execution paradigms to evaluate parallel and distributed systems trade-offs:
